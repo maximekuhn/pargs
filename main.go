@@ -9,13 +9,15 @@ import (
 )
 
 type Args struct {
-	Verbose bool `pargs:"verbose"`
-	Help    bool `pargs:"help"`
+	Verbose bool   `pargs:"verbose"`
+	Help    bool   `pargs:"help"`
+	Config  string `pargs:"config"`
 }
 
 func (a Args) print() {
 	fmt.Printf("a.Verbose: %v\n", a.Verbose)
 	fmt.Printf("a.Help: %v\n", a.Help)
+	fmt.Printf("a.Config: %v\n", a.Config)
 }
 
 func main() {
@@ -51,14 +53,26 @@ func parse(osArgs []string, target any) error {
 				return fmt.Errorf("arg at index %d is already marked (duplicate?)", i)
 			}
 
-			if field.Type != reflect.Bool.String() {
-				return fmt.Errorf("TODO: handle other types than boolean")
+			if field.Type == reflect.Bool.String() {
+				val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
+				val.SetBool(true)
+				marked[i] = true
+				continue
+			}
+			if field.Type == reflect.String.String() {
+				// TODO: handle --flag=value
+				if i == len(osArgs)-1 {
+					return fmt.Errorf("flag %s of type string does not have a value", field.Tag)
+				}
+				flagValue := osArgs[i+1]
+				val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
+				val.SetString(flagValue)
+				marked[i] = true
+				marked[i+1] = true
+				continue
 			}
 
-			val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
-			val.SetBool(true)
-
-			marked[i] = true
+			return fmt.Errorf("TODO: handle other types than boolean")
 		}
 	}
 
