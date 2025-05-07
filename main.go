@@ -5,19 +5,22 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
 type Args struct {
-	Verbose bool   `pargs:"verbose"`
-	Help    bool   `pargs:"help"`
-	Config  string `pargs:"config"`
+	Verbose   bool   `pargs:"verbose"`
+	Help      bool   `pargs:"help"`
+	Config    string `pargs:"config"`
+	MaxErrors int    `pargs:"max-errors"`
 }
 
 func (a Args) print() {
 	fmt.Printf("a.Verbose: %v\n", a.Verbose)
 	fmt.Printf("a.Help: %v\n", a.Help)
 	fmt.Printf("a.Config: %v\n", a.Config)
+	fmt.Printf("a.MaxErrors: %v\n", a.MaxErrors)
 }
 
 func main() {
@@ -65,8 +68,29 @@ func parse(osArgs []string, target any) error {
 					return fmt.Errorf("flag %s of type string does not have a value", field.Tag)
 				}
 				flagValue := osArgs[i+1]
+				if strings.HasPrefix(flagValue, "--") {
+					return fmt.Errorf("flag %s does not have a value", field.Tag)
+				}
 				val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
 				val.SetString(flagValue)
+				marked[i] = true
+				marked[i+1] = true
+				continue
+			}
+			if field.Type == reflect.Int.String() {
+				// TODO: handle --flag=value
+				if i == len(osArgs)-1 {
+					return fmt.Errorf("flag %s of type int does not have a value", field.Tag)
+				}
+				flagValue, err := strconv.Atoi(osArgs[i+1])
+				if strings.HasPrefix(osArgs[1+1], "--") {
+					return fmt.Errorf("flag %s does not have a value", field.Tag)
+				}
+				if err != nil {
+					return err
+				}
+				val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
+				val.SetInt(int64(flagValue))
 				marked[i] = true
 				marked[i+1] = true
 				continue
