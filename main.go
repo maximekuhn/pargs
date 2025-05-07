@@ -19,21 +19,24 @@ func (a Args) print() {
 }
 
 func main() {
-	osArgs := os.Args[1:]
-	args, err := parse(osArgs, reflect.TypeFor[Args]())
-	if err != nil {
+	var args Args
+	if err := Parse(&args); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	args.print()
 }
 
-func parse(args []string, t reflect.Type) (Args, error) {
-	a := Args{}
-	fields := fields(t)
-	marked := make([]bool, len(args))
+func Parse(target any) error {
+	return parse(os.Args[1:], target)
+}
+
+func parse(osArgs []string, target any) error {
+	targetType := reflect.TypeOf(target).Elem()
+	fields := fields(targetType)
+	marked := make([]bool, len(osArgs))
 	for _, field := range fields {
-		for i, arg := range args {
+		for i, arg := range osArgs {
 			// TODO: support short flags
 			cArg, found := strings.CutPrefix(arg, "--")
 			if !found {
@@ -45,14 +48,14 @@ func parse(args []string, t reflect.Type) (Args, error) {
 			}
 
 			if marked[i] {
-				return a, fmt.Errorf("arg at index %d is already marked (duplicate?)", i)
+				return fmt.Errorf("arg at index %d is already marked (duplicate?)", i)
 			}
 
 			if field.Type != reflect.Bool.String() {
-				return a, fmt.Errorf("TODO: handle other types than boolean")
+				return fmt.Errorf("TODO: handle other types than boolean")
 			}
 
-			val := reflect.ValueOf(&a).Elem().FieldByName(field.Name)
+			val := reflect.ValueOf(target).Elem().FieldByName(field.Name)
 			val.SetBool(true)
 
 			marked[i] = true
@@ -65,11 +68,11 @@ func parse(args []string, t reflect.Type) (Args, error) {
 			totalMarked++
 		}
 	}
-	if totalMarked != len(args) {
-		return a, errors.New("not all args have been recognized")
+	if totalMarked != len(osArgs) {
+		return errors.New("not all args have been recognized")
 	}
 
-	return a, nil
+	return nil
 }
 
 func fields(t reflect.Type) []Field {
